@@ -13,6 +13,7 @@
 
 function Main {
     $Files = Get-ChildItem -File -Path $Path -Filter $Filter -Recurse:$Recurse
+    Log "Starting, Path: $Path, Filter: $Filter, Recurse: $Recurse, Total files: $($Files.Length), Keep (L/H/D/W/M/Y): $KeepLast/$KeepHourly/$KeepDaily/$KeepWeekly/$KeepMonthly/$KeepYearly, WhatIf: $WhatIf"
     $Files = $Files | Sort-Object -Property LastWriteTime
     $List = [System.Collections.ArrayList]@()
     foreach ($File in $Files) {
@@ -112,13 +113,16 @@ function Main {
 
     # Delete files
     else {
+        $deleted = 0
         foreach ($Object in $List) {
             if ($Object.Delete) {
                 Log "Deleting '$($Object.File.Name)' last modified at $(DTFormat $Object.File.LastWriteTime)" Yellow
                 Remove-Item -Path $Object.File.FullName
+                $deleted++
             }
         }
     }
+    Log "Finished, Deleted $deleted files, $($Files.Length)-$deleted=$($Files.Length-$deleted) files left"
 }
 
 function Log ($Message, [System.ConsoleColor]$ForegroundColor = 7 ) {
