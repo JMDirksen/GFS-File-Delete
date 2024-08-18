@@ -13,7 +13,8 @@
 
 function Main {
     $Files = Get-ChildItem -File -Path $Path -Filter $Filter -Recurse:$Recurse
-    Log "Starting, Path: $Path, Filter: $Filter, Recurse: $Recurse, Total files: $($Files.Length), Keep (L/H/D/W/M/Y): $KeepLast/$KeepHourly/$KeepDaily/$KeepWeekly/$KeepMonthly/$KeepYearly, WhatIf: $WhatIf"
+    $Size = Format-FileSize ($Files | Measure-Object -Property Length -Sum).Sum
+    Log "Starting, Path: $Path, Filter: $Filter, Recurse: $Recurse, Total files: $($Files.Length), Size: $Size, Keep: L$KeepLast H$KeepHourly D$KeepDaily W$KeepWeekly M$KeepMonthly Y$KeepYearly, WhatIf: $WhatIf"
     $Files = $Files | Sort-Object -Property LastWriteTime
     $List = [System.Collections.ArrayList]@()
     foreach ($File in $Files) {
@@ -103,6 +104,7 @@ function Main {
     }
 
     # What if
+    $deleted = 0
     if ($WhatIf) {
         foreach ($Object in $List) {
             if ($Object.Why) { $why = "[$($Object.Why -join ", ")]" } else { $why = "" }
@@ -113,16 +115,18 @@ function Main {
 
     # Delete files
     else {
-        $deleted = 0
         foreach ($Object in $List) {
             if ($Object.Delete) {
-                Log "Deleting '$($Object.File.Name)' last modified at $(DTFormat $Object.File.LastWriteTime)" Yellow
+                Log "Deleting '$($Object.File.Name)' ($(Format-FileSize $Object.File.Length)) last modified at $(DTFormat $Object.File.LastWriteTime)" Yellow
                 Remove-Item -Path $Object.File.FullName
                 $deleted++
             }
         }
     }
-    Log "Finished, Deleted $deleted files, $($Files.Length)-$deleted=$($Files.Length-$deleted) files left"
+
+    $Files = Get-ChildItem -File -Path $Path -Filter $Filter -Recurse:$Recurse
+    $Size = Format-FileSize ($Files | Measure-Object -Property Length -Sum).Sum
+    Log "Finished, Deleted $deleted files, $($Files.Length) files ($Size) left"
 }
 
 function Log ($Message, [System.ConsoleColor]$ForegroundColor = 7 ) {
@@ -132,6 +136,15 @@ function Log ($Message, [System.ConsoleColor]$ForegroundColor = 7 ) {
 
 function DTFormat ([datetime]$datetime = $(Get-Date)) {
     Get-Date -Date $datetime -Format "yyyy-MM-dd HH:mm"
+}
+
+function Format-FileSize ([int64]$Size) {
+    if ($Size -gt 1TB) { [string]::Format("{0:0.00} TB", $Size / 1TB) }
+    elseif ($Size -gt 1GB) { [string]::Format("{0:0.00} GB", $Size / 1GB) }
+    elseif ($Size -gt 1MB) { [string]::Format("{0:0.00} MB", $Size / 1MB) }
+    elseif ($Size -gt 1KB) { [string]::Format("{0:0.00} kB", $Size / 1KB) }
+    elseif ($Size -gt 0) { [string]::Format("{0:0.00} B", $Size) }
+    else { "" }
 }
 
 Main
